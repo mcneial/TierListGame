@@ -22,6 +22,16 @@ export function normalizeDraft(draft: TierListDraftPayload): TierListDraftPayloa
   };
 }
 
+export function serializeDraftForAutosave(draft: TierListDraftPayload): TierListDraftPayload {
+  const options = draft.options.map((option) => option.trim());
+  return {
+    title: draft.title.trim(),
+    tiers: draft.tiers.map((tier) => tier.trim()),
+    options,
+    placements: ensurePlacementLength(draft.placements, options.length)
+  };
+}
+
 export function ensurePlacementLength(placements: Array<number | null>, optionCount: number) {
   return Array.from({ length: optionCount }, (_, index) => placements[index] ?? null);
 }

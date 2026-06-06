@@ -15,7 +15,7 @@ import {
   submitOwnDraft,
   submitPeerAnswer
 } from "./api";
-import { createDefaultDraft, ensurePlacementLength, normalizeDraft } from "./draftUtils";
+import { createDefaultDraft, ensurePlacementLength, normalizeDraft, serializeDraftForAutosave } from "./draftUtils";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./storage";
 import type {
   AnswerView,
@@ -35,6 +35,23 @@ function scorePercent(score: number) {
   return `${Math.round(score * 100)}%`;
 }
 
+function formatPhaseLabel(phase: SessionResponse["room"]["phase"]) {
+  switch (phase) {
+    case "lobby":
+      return "Lobby";
+    case "authoring":
+      return "Authoring";
+    case "peerAnswering":
+      return "Peer Answering";
+    case "review":
+      return "Review";
+    case "awards":
+      return "Awards";
+    default:
+      return phase;
+  }
+}
+
 function useDebouncedEffect(effect: () => void, delay: number, deps: unknown[]) {
   useEffect(() => {
     const timeout = window.setTimeout(effect, delay);
@@ -50,7 +67,7 @@ function moveOption(placements: Array<number | null>, optionIndex: number, tierI
 
 function shortOptionLabel(option: string, index: number) {
   const trimmed = option.trim();
-  const body = trimmed.length > 18 ? `${trimmed.slice(0, 18)}…` : trimmed;
+  const body = trimmed.length > 18 ? `${trimmed.slice(0, 18)}...` : trimmed;
   return `${index + 1}. ${body || "Untitled"}`;
 }
 
@@ -74,7 +91,7 @@ function StarList({
           disabled={disabled}
           aria-label={`${value} star${value === 1 ? "" : "s"}`}
         >
-          ★
+          {"\u2605"}
         </button>
       ))}
     </div>
@@ -88,7 +105,8 @@ function TierBoardEditor({
   onChange,
   readOnly,
   title,
-  selectedPlayerName
+  selectedPlayerName,
+  eyebrowLabel
 }: {
   tiers: string[];
   options: string[];
@@ -97,6 +115,7 @@ function TierBoardEditor({
   readOnly?: boolean;
   title: string;
   selectedPlayerName?: string;
+  eyebrowLabel?: string;
 }) {
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
   const safePlacements = useMemo(() => ensurePlacementLength(placements, options.length), [placements, options.length]);
@@ -120,7 +139,7 @@ function TierBoardEditor({
     <section className="panel board-panel">
       <div className="panel-header">
         <div>
-          <p className="eyebrow">{selectedPlayerName ? `${selectedPlayerName}'s answer` : "Tier board"}</p>
+          <p className="eyebrow">{eyebrowLabel ?? (selectedPlayerName ? `${selectedPlayerName}'s answer` : "Tier board")}</p>
           <h3>{title}</h3>
         </div>
         {!readOnly && <p className="hint">Tap an option chip, then tap a tier row or the quick buttons below.</p>}
@@ -232,6 +251,33 @@ function AppContent() {
     starRating: null
   });
   const socketRef = useRef<Socket | null>(null);
+  const authoringDirtyRef = useRef(false);
+  const peerDirtyRef = useRef(false);
+  const reviewDirtyRef = useRef(false);
+  const activePeerAuthorIdRef = useRef<string | null>(null);
+  const activeReviewAuthorIdRef = useRef<string | null>(null);
+
+  const updateAuthoringDraft = (updater: (draft: AuthoringDraft) => AuthoringDraft) => {
+    authoringDirtyRef.current = true;
+    setAuthoringDraft((currentDraft) => ({
+      ...updater(currentDraft),
+      updatedAt: Date.now()
+    }));
+  };
+
+  const updatePeerAnswerDraft = (
+    updater: (draft: Pick<AnswerView, "placements" | "starRating">) => Pick<AnswerView, "placements" | "starRating">
+  ) => {
+    peerDirtyRef.current = true;
+    setPeerAnswerDraft((currentDraft) => updater(currentDraft));
+  };
+
+  const updateReviewAnswerDraft = (
+    updater: (draft: Pick<AnswerView, "placements" | "starRating">) => Pick<AnswerView, "placements" | "starRating">
+  ) => {
+    reviewDirtyRef.current = true;
+    setReviewAnswerDraft((currentDraft) => updater(currentDraft));
+  };
 
   const refreshSession = async (candidate = session) => {
     if (!candidate) {
@@ -299,16 +345,28 @@ function AppContent() {
 
   useEffect(() => {
     if (sessionData?.view.kind === "authoring") {
-      setAuthoringDraft(sessionData.view.draft);
+      if (!authoringDirtyRef.current || sessionData.view.submitted) {
+        setAuthoringDraft(sessionData.view.draft);
+      }
     }
   }, [sessionData]);
 
   useEffect(() => {
     if (sessionData?.view.kind === "peerAnswering" && sessionData.view.answer) {
-      setPeerAnswerDraft({
-        placements: [...sessionData.view.answer.placements],
-        starRating: sessionData.view.answer.starRating
-      });
+      const authorId = sessionData.view.currentList?.authorId ?? null;
+      if (authorId !== activePeerAuthorIdRef.current) {
+        activePeerAuthorIdRef.current = authorId;
+        peerDirtyRef.current = false;
+        setPeerAnswerDraft({
+          placements: [...sessionData.view.answer.placements],
+          starRating: sessionData.view.answer.starRating
+        });
+      } else if (!peerDirtyRef.current) {
+        setPeerAnswerDraft({
+          placements: [...sessionData.view.answer.placements],
+          starRating: sessionData.view.answer.starRating
+        });
+      }
     }
   }, [sessionData]);
 
@@ -317,11 +375,21 @@ function AppContent() {
       const reviewView = sessionData.view;
       const mine = reviewView.answerOptions.find((answer) => answer.playerId === reviewView.editablePlayerId);
       if (mine) {
-        setReviewAnswerDraft({
-          placements: [...mine.placements],
-          starRating: mine.starRating
-        });
-        setReviewPlayerId((current) => current || mine.playerId);
+        const authorId = reviewView.currentList.authorId;
+        if (authorId !== activeReviewAuthorIdRef.current) {
+          activeReviewAuthorIdRef.current = authorId;
+          reviewDirtyRef.current = false;
+          setReviewAnswerDraft({
+            placements: [...mine.placements],
+            starRating: mine.starRating
+          });
+          setReviewPlayerId(mine.playerId);
+        } else if (!reviewDirtyRef.current) {
+          setReviewAnswerDraft({
+            placements: [...mine.placements],
+            starRating: mine.starRating
+          });
+        }
       }
     }
   }, [sessionData]);
@@ -332,13 +400,15 @@ function AppContent() {
         return;
       }
 
-      const normalized = normalizeDraft(authoringDraft);
-      if (normalized.options.length === 0 || normalized.tiers.length < 2) {
+      const draftForAutosave = serializeDraftForAutosave(authoringDraft);
+      if (draftForAutosave.options.length === 0 || draftForAutosave.tiers.length < 2) {
         return;
       }
 
-      void saveOwnDraft(session, normalized)
-        .then(() => socketRef.current?.emit("room:changed", { roomCode: session.roomCode, event: "tierlist:draftSaved" }))
+      void saveOwnDraft(session, draftForAutosave)
+        .then(() => {
+          authoringDirtyRef.current = false;
+        })
         .catch((caughtError) => {
           if (caughtError instanceof ApiError) {
             setError(caughtError.message);
@@ -354,11 +424,15 @@ function AppContent() {
       if (!session || !sessionData || sessionData.view.kind !== "peerAnswering" || !sessionData.view.currentList) {
         return;
       }
-      void savePeerAnswer(session, sessionData.view.currentList.authorId, peerAnswerDraft).catch((caughtError) => {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError.message);
-        }
-      });
+      void savePeerAnswer(session, sessionData.view.currentList.authorId, peerAnswerDraft)
+        .then(() => {
+          peerDirtyRef.current = false;
+        })
+        .catch((caughtError) => {
+          if (caughtError instanceof ApiError) {
+            setError(caughtError.message);
+          }
+        });
     },
     500,
     [peerAnswerDraft, session, sessionData]
@@ -369,11 +443,15 @@ function AppContent() {
       if (!session || !sessionData || sessionData.view.kind !== "review") {
         return;
       }
-      void saveReviewAnswer(session, reviewAnswerDraft).catch((caughtError) => {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError.message);
-        }
-      });
+      void saveReviewAnswer(session, reviewAnswerDraft)
+        .then(() => {
+          reviewDirtyRef.current = false;
+        })
+        .catch((caughtError) => {
+          if (caughtError instanceof ApiError) {
+            setError(caughtError.message);
+          }
+        });
     },
     500,
     [reviewAnswerDraft, session, sessionData]
@@ -432,7 +510,6 @@ function AppContent() {
     setError(null);
     try {
       await action();
-      socketRef.current?.emit("room:changed", { roomCode: session.roomCode, event });
       await refreshSession(session);
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Something went wrong.");
@@ -443,6 +520,11 @@ function AppContent() {
 
   const signOut = () => {
     clearStoredSession();
+    authoringDirtyRef.current = false;
+    peerDirtyRef.current = false;
+    reviewDirtyRef.current = false;
+    activePeerAuthorIdRef.current = null;
+    activeReviewAuthorIdRef.current = null;
     setSession(null);
     setSessionData(null);
     setMode("landing");
@@ -459,7 +541,7 @@ function AppContent() {
   const currentPeerList = sessionData?.view.kind === "peerAnswering" ? sessionData.view.currentList : null;
 
   if (loading) {
-    return <div className="shell loading-shell">Reconnecting to your room…</div>;
+    return <div className="shell loading-shell">Reconnecting to your room...</div>;
   }
 
   if (!session || !sessionData) {
@@ -469,7 +551,7 @@ function AppContent() {
           <p className="eyebrow">Realtime party game</p>
           <h1>Build chaotic tier lists together.</h1>
           <p className="hero-copy">
-            Everyone writes a tier list, answers every other player’s list, then debates the results together before the awards roll in.
+            Everyone writes a tier list, answers every other player's list, then debates the results together before the awards roll in.
           </p>
           <div className="hero-actions">
             <button type="button" className="primary-button" onClick={() => setMode("hostPassword")}>
@@ -582,7 +664,7 @@ function AppContent() {
           <h1>Tier List Game</h1>
         </div>
         <div className="topbar-actions">
-          <span className="pill">{sessionData.room.phase}</span>
+          <span className="pill">{formatPhaseLabel(sessionData.room.phase)}</span>
           <button type="button" className="ghost-button" onClick={signOut}>
             Leave session
           </button>
@@ -656,7 +738,7 @@ function AppContent() {
             {sessionData.view.submitted ? (
               <div className="stack">
                 <h3>Your list is in.</h3>
-                <p>You are locked in for now. We’ll move to peer answers when every player has submitted their own list.</p>
+                <p>You are locked in for now. We'll move to peer answers when every player has submitted their own list.</p>
               </div>
             ) : (
               <div className="stack">
@@ -664,7 +746,7 @@ function AppContent() {
                   <span>Tier list title</span>
                   <input
                     value={authoringDraft.title}
-                    onChange={(event) => setAuthoringDraft((draft) => ({ ...draft, title: event.target.value }))}
+                    onChange={(event) => updateAuthoringDraft((draft) => ({ ...draft, title: event.target.value }))}
                     maxLength={80}
                   />
                 </label>
@@ -677,7 +759,7 @@ function AppContent() {
                         type="button"
                         className="ghost-button"
                         onClick={() =>
-                          setAuthoringDraft((draft) => ({
+                          updateAuthoringDraft((draft) => ({
                             ...draft,
                             tiers: draft.tiers.length >= 10 ? draft.tiers : [...draft.tiers, `Tier ${draft.tiers.length + 1}`]
                           }))
@@ -693,7 +775,7 @@ function AppContent() {
                           value={tier}
                           maxLength={64}
                           onChange={(event) =>
-                            setAuthoringDraft((draft) => ({
+                            updateAuthoringDraft((draft) => ({
                               ...draft,
                               tiers: draft.tiers.map((entry, tierIndex) => (tierIndex === index ? event.target.value : entry))
                             }))
@@ -703,7 +785,7 @@ function AppContent() {
                           type="button"
                           className="ghost-button"
                           onClick={() =>
-                            setAuthoringDraft((draft) => {
+                            updateAuthoringDraft((draft) => {
                               if (draft.tiers.length <= 2) {
                                 return draft;
                               }
@@ -735,7 +817,7 @@ function AppContent() {
                         type="button"
                         className="ghost-button"
                         onClick={() =>
-                          setAuthoringDraft((draft) => ({
+                          updateAuthoringDraft((draft) => ({
                             ...draft,
                             options: [...draft.options, ""],
                             placements: [...draft.placements, null]
@@ -753,7 +835,7 @@ function AppContent() {
                           maxLength={120}
                           rows={2}
                           onChange={(event) =>
-                            setAuthoringDraft((draft) => ({
+                            updateAuthoringDraft((draft) => ({
                               ...draft,
                               options: draft.options.map((entry, optionIndex) => (optionIndex === index ? event.target.value : entry))
                             }))
@@ -763,7 +845,7 @@ function AppContent() {
                           type="button"
                           className="ghost-button"
                           onClick={() =>
-                            setAuthoringDraft((draft) => ({
+                            updateAuthoringDraft((draft) => ({
                               ...draft,
                               options: draft.options.filter((_, optionIndex) => optionIndex !== index),
                               placements: draft.placements.filter((_, placementIndex) => placementIndex !== index)
@@ -783,7 +865,7 @@ function AppContent() {
                   tiers={authoringDraft.tiers}
                   options={authoringDraft.options}
                   placements={authoringDraft.placements}
-                  onChange={(placements) => setAuthoringDraft((draft) => ({ ...draft, placements }))}
+                  onChange={(placements) => updateAuthoringDraft((draft) => ({ ...draft, placements }))}
                 />
 
                 <button
@@ -815,27 +897,27 @@ function AppContent() {
                   {sessionData.view.completedCount}/{sessionData.view.totalCount} lists finished
                 </h2>
               </div>
-              <p className="hint">Every other player’s list gets its own score and star rating.</p>
+              <p className="hint">Every other player's list gets its own score and star rating.</p>
             </div>
 
             {sessionData.view.waiting || !sessionData.view.currentList || !sessionData.view.answer ? (
-              <p>You’re caught up. Waiting for everyone else to finish their current submissions.</p>
+              <p>You're caught up. Waiting for everyone else to finish their current submissions.</p>
             ) : (
               <div className="stack">
                 <TierBoardEditor
                   title={sessionData.view.currentList.title}
-                  selectedPlayerName={sessionData.view.currentList.authorUsername}
+                  eyebrowLabel={`${sessionData.view.currentList.authorUsername}'s tier list`}
                   tiers={sessionData.view.currentList.tiers}
                   options={sessionData.view.currentList.options}
                   placements={peerAnswerDraft.placements}
-                  onChange={(placements) => setPeerAnswerDraft((draft) => ({ ...draft, placements }))}
+                  onChange={(placements) => updatePeerAnswerDraft((draft) => ({ ...draft, placements }))}
                 />
 
                 <section className="panel mini-panel">
                   <p className="eyebrow">How much did you like this list?</p>
                   <StarList
                     starRating={peerAnswerDraft.starRating}
-                    onChange={(value) => setPeerAnswerDraft((draft) => ({ ...draft, starRating: value }))}
+                    onChange={(value) => updatePeerAnswerDraft((draft) => ({ ...draft, starRating: value }))}
                   />
                 </section>
 
@@ -895,7 +977,7 @@ function AppContent() {
                       : currentReviewAnswer.placements
                   }
                   readOnly={reviewPlayerId !== sessionData.view.editablePlayerId}
-                  onChange={(placements) => setReviewAnswerDraft((draft) => ({ ...draft, placements }))}
+                  onChange={(placements) => updateReviewAnswerDraft((draft) => ({ ...draft, placements }))}
                 />
               )}
 
@@ -903,11 +985,11 @@ function AppContent() {
                 <section className="panel mini-panel">
                   <p className="eyebrow">Your final rating</p>
                   {sessionData.view.currentList.authorId === sessionData.currentPlayer.id ? (
-                    <p>You wrote this list, so there’s no star rating for your own answer.</p>
+                    <p>You wrote this list, so there's no star rating for your own answer.</p>
                   ) : (
                     <StarList
                       starRating={reviewAnswerDraft.starRating}
-                      onChange={(value) => setReviewAnswerDraft((draft) => ({ ...draft, starRating: value }))}
+                      onChange={(value) => updateReviewAnswerDraft((draft) => ({ ...draft, starRating: value }))}
                     />
                   )}
                 </section>
@@ -946,7 +1028,7 @@ function AppContent() {
                 <h3>Most Liked Tier List</h3>
                 {sessionData.view.awards.mostLikedTierList ? (
                   <p>
-                    {sessionData.view.awards.mostLikedTierList.authorUsername} • {sessionData.view.awards.mostLikedTierList.title} •{" "}
+                    {sessionData.view.awards.mostLikedTierList.authorUsername} - {sessionData.view.awards.mostLikedTierList.title} -{" "}
                     {sessionData.view.awards.mostLikedTierList.averageStars.toFixed(2)} stars
                   </p>
                 ) : (
@@ -957,8 +1039,8 @@ function AppContent() {
                 <h3>Most Controversial Tier List</h3>
                 {sessionData.view.awards.mostControversialTierList ? (
                   <p>
-                    {sessionData.view.awards.mostControversialTierList.authorUsername} •{" "}
-                    {sessionData.view.awards.mostControversialTierList.title} •{" "}
+                    {sessionData.view.awards.mostControversialTierList.authorUsername} -{" "}
+                    {sessionData.view.awards.mostControversialTierList.title} -{" "}
                     {scorePercent(sessionData.view.awards.mostControversialTierList.score)}
                   </p>
                 ) : (
@@ -969,8 +1051,8 @@ function AppContent() {
                 <h3>Most Agreeable Tier List</h3>
                 {sessionData.view.awards.mostAgreeableTierList ? (
                   <p>
-                    {sessionData.view.awards.mostAgreeableTierList.authorUsername} •{" "}
-                    {sessionData.view.awards.mostAgreeableTierList.title} •{" "}
+                    {sessionData.view.awards.mostAgreeableTierList.authorUsername} -{" "}
+                    {sessionData.view.awards.mostAgreeableTierList.title} -{" "}
                     {scorePercent(1 - sessionData.view.awards.mostAgreeableTierList.score)}
                   </p>
                 ) : (
@@ -985,7 +1067,7 @@ function AppContent() {
                 <ol>
                   {sessionData.view.awards.mostAlignedPairs.map((pair) => (
                     <li key={`${pair.playerAId}-${pair.playerBId}`}>
-                      {pair.playerAUsername} + {pair.playerBUsername} — {scorePercent(pair.score)}
+                      {pair.playerAUsername} + {pair.playerBUsername} - {scorePercent(pair.score)}
                     </li>
                   ))}
                 </ol>
@@ -995,7 +1077,7 @@ function AppContent() {
                 <ol>
                   {sessionData.view.awards.mostDifferentPairs.map((pair) => (
                     <li key={`${pair.playerAId}-${pair.playerBId}`}>
-                      {pair.playerAUsername} + {pair.playerBUsername} — {scorePercent(pair.score)}
+                      {pair.playerAUsername} + {pair.playerBUsername} - {scorePercent(pair.score)}
                     </li>
                   ))}
                 </ol>

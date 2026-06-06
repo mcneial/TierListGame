@@ -32,6 +32,11 @@ function getPlayerToken(request: express.Request) {
 export function createApp(store: GameStore = new InMemoryGameStore()) {
   const app = express();
   const authRateLimiter = new InMemoryRateLimiter();
+  let roomUpdateListener: ((roomCode: string, event: string) => void) | null = null;
+
+  const notifyRoomUpdated = (roomCode: string, event: string) => {
+    roomUpdateListener?.(roomCode, event);
+  };
 
   app.use(
     cors({
@@ -80,6 +85,7 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
 
       const { username, maxPlayers } = createRoomSchema.parse(request.body);
       const result = store.createRoom(username, maxPlayers);
+      notifyRoomUpdated(result.room.code, "room:created");
       response.status(201).json({
         roomCode: result.room.code,
         playerToken: result.playerToken
@@ -93,6 +99,7 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
     try {
       const { username } = joinRoomSchema.parse(request.body);
       const result = store.joinRoom(request.params.code, username);
+      notifyRoomUpdated(result.room.code, "player:joined");
       response.status(201).json({
         roomCode: result.room.code,
         playerToken: result.playerToken
@@ -106,6 +113,7 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
     try {
       const { username } = joinRoomSchema.parse(request.body);
       const result = store.rejoinRoom(request.params.code, username);
+      notifyRoomUpdated(result.room.code, "player:rejoined");
       response.status(200).json({
         roomCode: result.room.code,
         playerToken: result.playerToken
@@ -125,7 +133,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
 
   app.post("/api/rooms/:code/start", (request, response, next) => {
     try {
-      store.startGame(request.params.code, getPlayerToken(request));
+      const room = store.startGame(request.params.code, getPlayerToken(request));
+      notifyRoomUpdated(room.code, "game:start");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -135,7 +144,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
   app.put("/api/rooms/:code/my-list", (request, response, next) => {
     try {
       const payload = tierListDraftSchema.parse(request.body);
-      store.saveOwnList(request.params.code, getPlayerToken(request), payload, false);
+      const room = store.saveOwnList(request.params.code, getPlayerToken(request), payload, false);
+      notifyRoomUpdated(room.code, "tierlist:draftSaved");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -145,7 +155,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
   app.post("/api/rooms/:code/my-list/submit", (request, response, next) => {
     try {
       const payload = tierListSchema.parse(request.body);
-      store.saveOwnList(request.params.code, getPlayerToken(request), payload, true);
+      const room = store.saveOwnList(request.params.code, getPlayerToken(request), payload, true);
+      notifyRoomUpdated(room.code, "tierlist:submitted");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -155,7 +166,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
   app.put("/api/rooms/:code/peer-answers/:authorId", (request, response, next) => {
     try {
       const payload = answerSchema.parse(request.body);
-      store.savePeerAnswer(request.params.code, getPlayerToken(request), request.params.authorId, payload, false);
+      const room = store.savePeerAnswer(request.params.code, getPlayerToken(request), request.params.authorId, payload, false);
+      notifyRoomUpdated(room.code, "peer:draftSaved");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -165,7 +177,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
   app.post("/api/rooms/:code/peer-answers/:authorId/submit", (request, response, next) => {
     try {
       const payload = answerSchema.parse(request.body);
-      store.savePeerAnswer(request.params.code, getPlayerToken(request), request.params.authorId, payload, true);
+      const room = store.savePeerAnswer(request.params.code, getPlayerToken(request), request.params.authorId, payload, true);
+      notifyRoomUpdated(room.code, "peer:submitted");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -175,7 +188,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
   app.put("/api/rooms/:code/review/current-answer", (request, response, next) => {
     try {
       const payload = answerSchema.parse(request.body);
-      store.saveReviewAnswer(request.params.code, getPlayerToken(request), payload);
+      const room = store.saveReviewAnswer(request.params.code, getPlayerToken(request), payload);
+      notifyRoomUpdated(room.code, "review:updated");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -184,7 +198,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
 
   app.post("/api/rooms/:code/review/advance", (request, response, next) => {
     try {
-      store.advanceReview(request.params.code, getPlayerToken(request));
+      const room = store.advanceReview(request.params.code, getPlayerToken(request));
+      notifyRoomUpdated(room.code, "review:advanced");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -193,7 +208,8 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
 
   app.post("/api/rooms/:code/play-again", (request, response, next) => {
     try {
-      store.playAgain(request.params.code, getPlayerToken(request));
+      const room = store.playAgain(request.params.code, getPlayerToken(request));
+      notifyRoomUpdated(room.code, "round:advanced");
       response.json({ ok: true });
     } catch (error) {
       next(error);
@@ -221,7 +237,13 @@ export function createApp(store: GameStore = new InMemoryGameStore()) {
     response.status(500).json({ error: "Something went wrong." });
   });
 
-  return { app, store };
+  return {
+    app,
+    store,
+    setRoomUpdateListener(listener: (roomCode: string, event: string) => void) {
+      roomUpdateListener = listener;
+    }
+  };
 }
 
 export function attachSocketServer(httpServer: HttpServer, store: GameStore) {
@@ -261,5 +283,8 @@ export function attachSocketServer(httpServer: HttpServer, store: GameStore) {
     });
   });
 
-  return io;
+  return {
+    io,
+    broadcastRoomState
+  };
 }
