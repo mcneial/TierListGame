@@ -1,4 +1,4 @@
-import type { Answer, AwardsPayload, PairScore, Player, Room } from "./types.js";
+import type { AwardsPayload, PairScore, Room } from "./types.js";
 
 function normalizedPlacementDistance(a: number, b: number, tierCount: number) {
   if (tierCount <= 1) {
@@ -14,10 +14,6 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function pairwiseAverage(scores: number[]) {
-  return scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : 0;
-}
-
 function comparePairScoresDescending(a: PairScore, b: PairScore) {
   if (b.score !== a.score) {
     return b.score - a.score;
@@ -25,11 +21,32 @@ function comparePairScoresDescending(a: PairScore, b: PairScore) {
   return `${a.playerAUsername}-${a.playerBUsername}`.localeCompare(`${b.playerAUsername}-${b.playerBUsername}`);
 }
 
-function comparePairScoresAscending(a: PairScore, b: PairScore) {
-  if (a.score !== b.score) {
-    return a.score - b.score;
+function getAverageReceivedStars(room: Room, authorId: string) {
+  const answers = Object.values(room.round!.answersByAuthorId[authorId]).filter(
+    (answer) => answer.playerId !== authorId && answer.starRating !== null
+  );
+  return average(answers.map((answer) => answer.starRating ?? 0));
+}
+
+function getTierListDisagreementScore(room: Room, authorId: string) {
+  const authoredList = room.round!.authoredListsByPlayerId[authorId];
+  const answers = Object.values(room.round!.answersByAuthorId[authorId]);
+  const distances: number[] = [];
+
+  for (let optionIndex = 0; optionIndex < authoredList.options.length; optionIndex += 1) {
+    for (let i = 0; i < answers.length; i += 1) {
+      for (let j = i + 1; j < answers.length; j += 1) {
+        const firstPlacement = answers[i].placements[optionIndex];
+        const secondPlacement = answers[j].placements[optionIndex];
+        if (firstPlacement === null || secondPlacement === null) {
+          continue;
+        }
+        distances.push(normalizedPlacementDistance(firstPlacement, secondPlacement, authoredList.tiers.length));
+      }
+    }
   }
-  return `${a.playerAUsername}-${a.playerBUsername}`.localeCompare(`${b.playerAUsername}-${b.playerBUsername}`);
+
+  return average(distances);
 }
 
 export function computeAwards(room: Room): AwardsPayload {
@@ -41,52 +58,25 @@ export function computeAwards(room: Room): AwardsPayload {
   const listEntries = Object.values(room.round.authoredListsByPlayerId);
 
   const likedCandidates = listEntries.map((list) => {
-    const answers = Object.values(room.round!.answersByAuthorId[list.authorId]).filter(
-      (answer) => answer.playerId !== list.authorId && answer.starRating !== null
-    );
-    const score = average(answers.map((answer) => answer.starRating ?? 0));
     const author = playersById.get(list.authorId)!;
     return {
       authorId: author.id,
       authorUsername: author.username,
       title: list.title,
-      averageStars: score
+      averageStars: getAverageReceivedStars(room, list.authorId)
     };
   });
 
   const controversyCandidates = listEntries.map((list) => {
-    const answers = Object.values(room.round!.answersByAuthorId[list.authorId]);
-    const optionDisagreement: number[] = [];
-
-    for (let optionIndex = 0; optionIndex < list.options.length; optionIndex += 1) {
-      const distances: number[] = [];
-      for (let i = 0; i < answers.length; i += 1) {
-        for (let j = i + 1; j < answers.length; j += 1) {
-          const firstPlacement = answers[i].placements[optionIndex];
-          const secondPlacement = answers[j].placements[optionIndex];
-          if (firstPlacement === null || secondPlacement === null) {
-            continue;
-          }
-          distances.push(normalizedPlacementDistance(firstPlacement, secondPlacement, list.tiers.length));
-        }
-      }
-      optionDisagreement.push(pairwiseAverage(distances));
-    }
-
-    const score = average(optionDisagreement);
     const author = playersById.get(list.authorId)!;
     return {
       authorId: author.id,
       authorUsername: author.username,
       title: list.title,
-      score
+      score: getTierListDisagreementScore(room, list.authorId),
+      averageStars: getAverageReceivedStars(room, list.authorId)
     };
   });
-
-  const finalAnswers: Answer[] = [];
-  for (const answersByPlayer of Object.values(room.round.answersByAuthorId)) {
-    finalAnswers.push(...Object.values(answersByPlayer));
-  }
 
   const pairDifferences: PairScore[] = [];
   for (let i = 0; i < room.players.length; i += 1) {
@@ -141,16 +131,45 @@ export function computeAwards(room: Room): AwardsPayload {
     return `${a.authorUsername}-${a.title}`.localeCompare(`${b.authorUsername}-${b.title}`);
   };
 
-  const agreeable = [...controversyCandidates].sort((a, b) => {
+  const controversySorter = (
+    a: { score: number; averageStars: number; title: string; authorUsername: string },
+    b: { score: number; averageStars: number; title: string; authorUsername: string }
+  ) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    if (b.averageStars !== a.averageStars) {
+      return b.averageStars - a.averageStars;
+    }
+    return `${a.authorUsername}-${a.title}`.localeCompare(`${b.authorUsername}-${b.title}`);
+  };
+
+  const agreeableSorter = (
+    a: { score: number; averageStars: number; title: string; authorUsername: string },
+    b: { score: number; averageStars: number; title: string; authorUsername: string }
+  ) => {
     if (a.score !== b.score) {
       return a.score - b.score;
     }
+    if (b.averageStars !== a.averageStars) {
+      return b.averageStars - a.averageStars;
+    }
     return `${a.authorUsername}-${a.title}`.localeCompare(`${b.authorUsername}-${b.title}`);
-  })[0] ?? null;
+  };
+
+  const mostControversialTierList = [...controversyCandidates].sort(controversySorter)[0] ?? null;
+  const agreeable = [...controversyCandidates].sort(agreeableSorter)[0] ?? null;
 
   return {
     mostLikedTierList: likedCandidates.sort(byStarsThenTitle)[0] ?? null,
-    mostControversialTierList: controversyCandidates.sort(byStarsThenTitle)[0] ?? null,
+    mostControversialTierList: mostControversialTierList
+      ? {
+          authorId: mostControversialTierList.authorId,
+          authorUsername: mostControversialTierList.authorUsername,
+          title: mostControversialTierList.title,
+          score: mostControversialTierList.score
+        }
+      : null,
     mostAgreeableTierList: agreeable,
     mostAlignedPairs,
     mostDifferentPairs
