@@ -714,8 +714,10 @@ function AppContent() {
           <h1>Tier List Game</h1>
         </div>
         <div className="topbar-actions room-topbar-actions">
-          <span className="pill">{formatPhaseLabel(sessionData.room.phase)}</span>
-          <span className="pill room-code-pill">Room Code: {sessionData.room.code}</span>
+          <div className="room-status-pills">
+            <span className="pill">{formatPhaseLabel(sessionData.room.phase)}</span>
+            <span className="pill room-code-pill">Room Code: {sessionData.room.code}</span>
+          </div>
           <button type="button" className="ghost-button" onClick={signOut}>
             Leave session
           </button>

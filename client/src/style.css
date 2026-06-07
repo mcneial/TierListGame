@@ -253,12 +253,13 @@ select:focus-visible {
 
 .room-shell .topbar {
   margin-bottom: 0;
-  padding: 8px 4px 2px;
+  padding: 4px 4px 0;
+  align-items: flex-start;
 }
 
 .room-title-block {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .room-title-block h1 {
@@ -268,7 +269,16 @@ select:focus-visible {
 }
 
 .room-topbar-actions {
-  align-items: center;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  align-items: start;
+}
+
+.room-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .room-topbar .pill {
@@ -283,6 +293,7 @@ select:focus-visible {
 
 .room-topbar .ghost-button {
   background: rgba(255, 255, 255, 0.05);
+  min-width: 220px;
 }
 
 .player-strip,
@@ -721,12 +732,17 @@ ol {
 
   .room-topbar-actions {
     width: 100%;
-    gap: 10px;
+    gap: 12px;
+  }
+
+  .room-status-pills {
+    width: 100%;
   }
 
   .room-topbar .ghost-button {
     width: 100%;
     justify-content: center;
+    min-width: 0;
   }
 
   .room-topbar .pill {
