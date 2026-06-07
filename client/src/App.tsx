@@ -31,6 +31,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function getLandingPath(mode: LandingMode) {
+  if (mode === "hostPassword" || mode === "hostSetup") {
+    return "host";
+  }
+  if (mode === "join") {
+    return "join";
+  }
+  return null;
+}
+
 function scorePercent(score: number) {
   return `${Math.round(score * 100)}%`;
 }
@@ -539,6 +549,7 @@ function AppContent() {
       ? sessionData.view.answerOptions.find((answer) => answer.playerId === reviewPlayerId) ?? sessionData.view.answerOptions[0]
       : null;
   const currentPeerList = sessionData?.view.kind === "peerAnswering" ? sessionData.view.currentList : null;
+  const activeLandingPath = getLandingPath(mode);
 
   if (loading) {
     return <div className="shell loading-shell">Reconnecting to your room...</div>;
@@ -557,10 +568,18 @@ function AppContent() {
             <h1>The Tier List Game, now on mobile.</h1>
             <p className="hero-copy">Create a room, invite your friends, build your lists, and argue about the results live.</p>
             <div className="hero-actions">
-              <button type="button" className="primary-button" onClick={() => setMode("hostPassword")}>
+              <button
+                type="button"
+                className={activeLandingPath === "join" ? "secondary-button" : "primary-button"}
+                onClick={() => setMode("hostPassword")}
+              >
                 Host Game
               </button>
-              <button type="button" className="secondary-button" onClick={() => setMode("join")}>
+              <button
+                type="button"
+                className={activeLandingPath === "join" ? "primary-button" : "secondary-button"}
+                onClick={() => setMode("join")}
+              >
                 Join Game
               </button>
             </div>
