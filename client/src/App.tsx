@@ -715,7 +715,7 @@ function AppContent() {
         </div>
         <div className="topbar-actions room-topbar-actions">
           <span className="pill">{formatPhaseLabel(sessionData.room.phase)}</span>
-          <span className="pill room-code-pill">{sessionData.room.code}</span>
+          <span className="pill room-code-pill">Room Code: {sessionData.room.code}</span>
           <button type="button" className="ghost-button" onClick={signOut}>
             Leave session
           </button>
