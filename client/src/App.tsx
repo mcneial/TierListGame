@@ -589,7 +589,6 @@ function AppContent() {
         <section className="flow-card landing-flow-card">
           <div className="flow-card-header">
             <div>
-              <p className="eyebrow">Start here</p>
               <h2>
                 {mode === "landing" && "Choose what you want to do"}
                 {mode === "hostPassword" && "Enter host password"}
@@ -597,12 +596,6 @@ function AppContent() {
                 {mode === "join" && "Join a room"}
               </h2>
             </div>
-            <span className="mode-pill">
-              {mode === "landing" && "Overview"}
-              {mode === "hostPassword" && "Host"}
-              {mode === "hostSetup" && "Create"}
-              {mode === "join" && "Join"}
-            </span>
           </div>
 
           {mode === "landing" && (

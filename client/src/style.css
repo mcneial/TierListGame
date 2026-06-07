@@ -286,8 +286,7 @@ select:focus-visible {
   gap: 10px;
 }
 
-.hero-badge,
-.mode-pill {
+.hero-badge {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
