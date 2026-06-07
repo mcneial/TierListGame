@@ -715,6 +715,7 @@ function AppContent() {
         </div>
         <div className="topbar-actions room-topbar-actions">
           <span className="pill">{formatPhaseLabel(sessionData.room.phase)}</span>
+          <span className="pill room-code-pill">{sessionData.room.code}</span>
           <button type="button" className="ghost-button" onClick={signOut}>
             Leave session
           </button>
@@ -726,7 +727,7 @@ function AppContent() {
           <div>
             <p className="eyebrow">Players</p>
             <h3>
-              {sessionData.players.length} / {sessionData.room.maxPlayers} connected to room {sessionData.room.code}
+              {sessionData.players.length} / {sessionData.room.maxPlayers} connected
             </h3>
           </div>
           {!sessionData.room.hostConnected && <span className="warning-badge">Host is disconnected. Progress is paused.</span>}

@@ -276,6 +276,11 @@ select:focus-visible {
   border: 1px solid rgba(255, 226, 151, 0.12);
 }
 
+.room-code-pill {
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
 .room-topbar .ghost-button {
   background: rgba(255, 255, 255, 0.05);
 }
