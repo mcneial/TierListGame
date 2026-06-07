@@ -547,34 +547,102 @@ function AppContent() {
   if (!session || !sessionData) {
     return (
       <main className="shell landing-shell">
-        <section className="hero-card">
-          <p className="eyebrow">Realtime party game</p>
-          <h1>Build chaotic tier lists together.</h1>
-          <p className="hero-copy">
-            Everyone writes a tier list, answers every other player's list, then debates the results together before the awards roll in.
-          </p>
-          <div className="hero-actions">
-            <button type="button" className="primary-button" onClick={() => setMode("hostPassword")}>
-              Host Game
-            </button>
-            <button type="button" className="secondary-button" onClick={() => setMode("join")}>
-              Join Game
-            </button>
+        <section className="hero-card landing-hero">
+          <div className="hero-copy-column">
+            <div className="hero-badges">
+              <span className="hero-badge">Realtime party game</span>
+              <span className="hero-badge muted">2-16 players</span>
+            </div>
+            <p className="eyebrow">Fast rooms. Big opinions.</p>
+            <h1>The Tier List Game, now on mobile.</h1>
+            <p className="hero-copy">Create a room, invite your friends, build your lists, and argue about the results live.</p>
+            <div className="hero-actions">
+              <button type="button" className="primary-button" onClick={() => setMode("hostPassword")}>
+                Host Game
+              </button>
+              <button type="button" className="secondary-button" onClick={() => setMode("join")}>
+                Join Game
+              </button>
+            </div>
+            <p className="hero-note">Works great on phones and lets players reconnect if they drop.</p>
           </div>
+
+          <aside className="hero-preview-card" aria-label="Game preview">
+            <div className="preview-header">
+              <div>
+                <p className="eyebrow">Sample room</p>
+                <h2>Best Snacks</h2>
+              </div>
+              <span className="pill accent">Live room</span>
+            </div>
+            <div className="preview-room-code">
+              <span>Room code</span>
+              <strong>J4XM</strong>
+            </div>
+            <div className="preview-board">
+              <div className="preview-row s-tier">
+                <span className="preview-tier-tag">S</span>
+                <div className="preview-chip-row">
+                  <span className="preview-chip">1. Fries</span>
+                  <span className="preview-chip">4. Wings</span>
+                </div>
+              </div>
+              <div className="preview-row a-tier">
+                <span className="preview-tier-tag">A</span>
+                <div className="preview-chip-row">
+                  <span className="preview-chip">2. Nachos</span>
+                  <span className="preview-chip">7. Cookies</span>
+                </div>
+              </div>
+              <div className="preview-row b-tier">
+                <span className="preview-tier-tag">B</span>
+                <div className="preview-chip-row">
+                  <span className="preview-chip">3. Pretzels</span>
+                </div>
+              </div>
+            </div>
+            <p className="preview-caption">One room, one code, and a shared debate once everyone is done.</p>
+          </aside>
         </section>
 
-        <section className="flow-card">
-          {mode === "landing" && (
+        <section className="flow-card landing-flow-card">
+          <div className="flow-card-header">
             <div>
-              <h2>Pick a path</h2>
-              <p>Hosts create the room and control when the group moves between phases. Everyone else joins with the 4-character room code.</p>
+              <p className="eyebrow">Start here</p>
+              <h2>
+                {mode === "landing" && "Choose what you want to do"}
+                {mode === "hostPassword" && "Enter host password"}
+                {mode === "hostSetup" && "Set up your room"}
+                {mode === "join" && "Join a room"}
+              </h2>
+            </div>
+            <span className="mode-pill">
+              {mode === "landing" && "Overview"}
+              {mode === "hostPassword" && "Host"}
+              {mode === "hostSetup" && "Create"}
+              {mode === "join" && "Join"}
+            </span>
+          </div>
+
+          {mode === "landing" && (
+            <div className="stack">
+              <div className="route-grid">
+                <button type="button" className="route-card route-card-primary" onClick={() => setMode("hostPassword")}>
+                  <span className="route-icon">+</span>
+                  <strong>Host a room</strong>
+                  <p>Create the lobby and share the code.</p>
+                </button>
+                <button type="button" className="route-card" onClick={() => setMode("join")}>
+                  <span className="route-icon">#</span>
+                  <strong>Join a room</strong>
+                  <p>Enter a code and jump in.</p>
+                </button>
+              </div>
             </div>
           )}
 
           {mode === "hostPassword" && (
             <div className="stack">
-              <h2>Host password</h2>
-              <p>For now, hosting is protected by a single password so only trusted hosts can start rooms.</p>
               <label className="field">
                 <span>Password</span>
                 <input
@@ -597,10 +665,14 @@ function AppContent() {
 
           {mode === "hostSetup" && (
             <div className="stack">
-              <h2>Create your room</h2>
               <label className="field">
                 <span>Host username</span>
-                <input value={hostUsername} onChange={(event) => setHostUsername(event.target.value)} maxLength={20} />
+                <input
+                  value={hostUsername}
+                  onChange={(event) => setHostUsername(event.target.value)}
+                  maxLength={20}
+                  placeholder="Your display name"
+                />
               </label>
               <label className="field">
                 <span>Maximum players</span>
@@ -625,7 +697,6 @@ function AppContent() {
 
           {mode === "join" && (
             <div className="stack">
-              <h2>Join a room</h2>
               <label className="field">
                 <span>Room code</span>
                 <input
@@ -637,7 +708,12 @@ function AppContent() {
               </label>
               <label className="field">
                 <span>Username</span>
-                <input value={joinUsername} onChange={(event) => setJoinUsername(event.target.value)} maxLength={20} />
+                <input
+                  value={joinUsername}
+                  onChange={(event) => setJoinUsername(event.target.value)}
+                  maxLength={20}
+                  placeholder="Your display name"
+                />
               </label>
               <div className="row-actions">
                 <button type="button" className="ghost-button" onClick={() => setMode("landing")}>
