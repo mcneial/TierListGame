@@ -553,7 +553,7 @@ function AppContent() {
               <span className="hero-badge">Realtime party game</span>
               <span className="hero-badge muted">2-16 players</span>
             </div>
-            <p className="eyebrow">Fast rooms. Big opinions.</p>
+            <p className="eyebrow">These tier lists aren't gonna create themselves.</p>
             <h1>The Tier List Game, now on mobile.</h1>
             <p className="hero-copy">Create a room, invite your friends, build your lists, and argue about the results live.</p>
             <div className="hero-actions">
@@ -564,45 +564,7 @@ function AppContent() {
                 Join Game
               </button>
             </div>
-            <p className="hero-note">Works great on phones and lets players reconnect if they drop.</p>
           </div>
-
-          <aside className="hero-preview-card" aria-label="Game preview">
-            <div className="preview-header">
-              <div>
-                <p className="eyebrow">Sample room</p>
-                <h2>Best Snacks</h2>
-              </div>
-              <span className="pill accent">Live room</span>
-            </div>
-            <div className="preview-room-code">
-              <span>Room code</span>
-              <strong>J4XM</strong>
-            </div>
-            <div className="preview-board">
-              <div className="preview-row s-tier">
-                <span className="preview-tier-tag">S</span>
-                <div className="preview-chip-row">
-                  <span className="preview-chip">1. Fries</span>
-                  <span className="preview-chip">4. Wings</span>
-                </div>
-              </div>
-              <div className="preview-row a-tier">
-                <span className="preview-tier-tag">A</span>
-                <div className="preview-chip-row">
-                  <span className="preview-chip">2. Nachos</span>
-                  <span className="preview-chip">7. Cookies</span>
-                </div>
-              </div>
-              <div className="preview-row b-tier">
-                <span className="preview-tier-tag">B</span>
-                <div className="preview-chip-row">
-                  <span className="preview-chip">3. Pretzels</span>
-                </div>
-              </div>
-            </div>
-            <p className="preview-caption">One room, one code, and a shared debate once everyone is done.</p>
-          </aside>
         </section>
 
         <section className="flow-card landing-flow-card">

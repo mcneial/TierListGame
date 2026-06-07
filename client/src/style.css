@@ -252,15 +252,7 @@ select:focus-visible {
   gap: 24px;
 }
 
-.landing-hero,
-.landing-lower-grid {
-  display: grid;
-  gap: 24px;
-}
-
 .landing-hero {
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
-  align-items: stretch;
   position: relative;
   overflow: hidden;
 }
@@ -327,106 +319,11 @@ select:focus-visible {
   margin-bottom: 8px;
 }
 
-.hero-note {
-  color: #bfb39a;
-  font-size: 0.95rem;
-}
-
-.hero-preview-card {
-  display: grid;
-  gap: 16px;
-  padding: 22px;
-  border-radius: 26px;
-  border: 1px solid rgba(255, 231, 191, 0.12);
-  background:
-    linear-gradient(180deg, rgba(18, 21, 23, 0.92), rgba(11, 12, 13, 0.92)),
-    rgba(10, 10, 10, 0.86);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 20px 42px rgba(0, 0, 0, 0.34);
-}
-
-.preview-header,
 .flow-card-header {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
-}
-
-.preview-room-code {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #d8ccb6;
-}
-
-.preview-room-code strong {
-  color: #fff7db;
-  font-size: 1.5rem;
-  letter-spacing: 0.12em;
-}
-
-.preview-board {
-  display: grid;
-  gap: 10px;
-}
-
-.preview-row {
-  display: grid;
-  grid-template-columns: 54px 1fr;
-  gap: 12px;
-  padding: 10px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.preview-tier-tag {
-  display: grid;
-  place-items: center;
-  min-height: 56px;
-  border-radius: 16px;
-  color: #251706;
-  font-weight: 800;
-  font-size: 1.1rem;
-}
-
-.s-tier .preview-tier-tag {
-  background: #7df377;
-}
-
-.a-tier .preview-tier-tag {
-  background: #c3f67e;
-}
-
-.b-tier .preview-tier-tag {
-  background: #f1e771;
-}
-
-.preview-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.preview-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff3d1;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.preview-caption {
-  color: #cabfa9;
-  font-size: 0.95rem;
 }
 
 .landing-flow-card,
@@ -723,23 +620,13 @@ ol {
     padding-top: 16px;
   }
 
-  .landing-hero,
-  .route-grid {
-    grid-template-columns: 1fr;
-  }
-
   .topbar,
-  .preview-header,
   .flow-card-header,
   .panel-header,
   .player-card-header,
   .option-bank-header,
   .subpanel-header {
     flex-direction: column;
-  }
-
-  .hero-preview-card {
-    padding: 18px;
   }
 
   .tier-row {
@@ -770,13 +657,5 @@ ol {
 
   h1 {
     font-size: clamp(2.15rem, 11vw, 3.4rem);
-  }
-
-  .preview-row {
-    grid-template-columns: 46px 1fr;
-  }
-
-  .preview-tier-tag {
-    min-height: 50px;
   }
 }
