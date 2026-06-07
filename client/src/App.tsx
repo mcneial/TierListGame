@@ -708,12 +708,12 @@ function AppContent() {
 
   return (
     <main className="shell room-shell">
-      <header className="topbar">
-        <div>
+      <header className="topbar room-topbar">
+        <div className="room-title-block">
           <p className="eyebrow">Room {sessionData.room.code}</p>
           <h1>Tier List Game</h1>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-actions room-topbar-actions">
           <span className="pill">{formatPhaseLabel(sessionData.room.phase)}</span>
           <button type="button" className="ghost-button" onClick={signOut}>
             Leave session
@@ -738,18 +738,20 @@ function AppContent() {
                 <strong>{player.username}</strong>
                 {player.isHost && <span className="pill accent">Host</span>}
               </div>
-              <p>{player.connected ? "Connected" : "Disconnected"}</p>
-              <p>Own list: {player.selfSubmitted ? "Submitted" : "Not submitted"}</p>
-              <p>
-                Peer answers: {player.peerSubmittedCount}/{player.peerTotalCount}
-              </p>
+              <div className="player-card-stats">
+                <p>{player.connected ? "Connected" : "Disconnected"}</p>
+                <p>Own list: {player.selfSubmitted ? "Submitted" : "Not submitted"}</p>
+                <p>
+                  Peer answers: {player.peerSubmittedCount}/{player.peerTotalCount}
+                </p>
+              </div>
             </article>
           ))}
         </div>
       </section>
 
       {sessionData.view.kind === "lobby" && (
-        <section className="panel">
+        <section className="panel lobby-panel">
           <div className="panel-header">
             <div>
               <p className="eyebrow">Lobby</p>
